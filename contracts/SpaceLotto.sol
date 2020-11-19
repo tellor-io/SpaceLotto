@@ -28,14 +28,14 @@ contract SpaceLotto is UsingTellor {
         require(msg.value == ticket, "must pay ticket to play");
         _isValidBet(_timestamp, _lon, _lat);
 
-        bytes32 betHash = keccack256(abi.encodePacked(_timestamp, _lon, _lat));
+        bytes32 betHash = hash(_timestamp, _lon, _lat);
         require(!uniqueBets[betHash], "bet already taken");
 
         bets[msg.sender][_timestamp] = new Position(_lon, _lat);
         uniqueBets[betHash] = true;
     }
     function claimPrize(uint128 _timestamp, uint64 _lon, uint64 _lat) external {
-        bytes32 betHash = keccack256(abi.encodePacked(_timestamp, _lon, _lat));
+        bytes32 betHash = hash(_timestamp, _lon, _lat);
         require(uniqueBets[betHash], "bet must have been taken");
         require(bets[msg.sender][_timestamp].lon == _lon, "wrong position");
         require(bets[msg.sender][_timestamp].lat == _lat, "wrong position");
@@ -49,15 +49,25 @@ contract SpaceLotto is UsingTellor {
         require(uin128(block.timestamp) >= lastResult + TEN_MINUTES, "Too soon for a new draw")
 
         //getting the earliest tellor value 
-        (_retrieved,  value, _tellorTimestamp) = getDataBefore(tellorId, block.timestamp - 2 * TEN_MINUTES);
+        (_retrieved,  _value, _tellorTimestamp) = getDataBefore(tellorId, block.timestamp - 2 * TEN_MINUTES);
+        require(_retrieved, "No value from tellor Oracle");
+        require(_tellorTimestamp + TEN_MINUTES <= block.timestamp, "tellor value must be old enough");
+        uint64 _lat = uint64(value);
+        uint64 _lon  = uint64(value >> 64);
+        uint128 _time = uint64(value >> 128);
 
-        // but also must have been at least 10 min since the result feed
+        result = hash(_timestamp, _lon, _lat);
+        results[uint256(_time)] = result;
+
     }
  
     function _isValidBet(uint128 _timestamp, uint64 _lon, uint64 _lat) internal{
         require( _timestamp > block.timestamp && _lon > 0 && _lat > 0, "invalid bet");
     }
 
+    function _hash(uint128 _timestamp, uint64 _lon, uint64 _lat) returns (bytes32) {
+        return keccack256(abi.encodePacked(_timestamp, _lon, _lat));
+    }
 
 
 }
