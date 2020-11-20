@@ -18,5 +18,7 @@ task("accounts", "Prints the list of accounts", async () => {
  */
 module.exports = {
   solidity: "0.7.3",
+  solidity: "0.5.16",
+  solidity: "0.7.0",
 };
 
