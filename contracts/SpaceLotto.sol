@@ -2,6 +2,7 @@
 pragma solidity 0.7.0;
 
 import "usingtellor/contracts/UsingTellor.sol";
+import "usingtellor/contracts/TellorPlayground.sol";
 
 contract SpaceLotto is UsingTellor {
 
@@ -10,11 +11,10 @@ contract SpaceLotto is UsingTellor {
         uint64 lat;
     }
 
-    uint128 public constant TEN_MINUTES = 600; 
+    uint128 public constant SLOT_DURATION = 600; 
 
     uint256 public tellorId = 75; //The id on tellor system
     uint256 public ticket = 100000000; //100 Million wei
-    uint256 public lastDrawnSlot = 0;
 
     mapping(address => mapping(uint256 => Position)) public bets; //better -> timestamp -> Position 
     mapping(bytes32 => bool) public uniqueBets;
@@ -46,14 +46,16 @@ contract SpaceLotto is UsingTellor {
         //Naive Transfer funds for winner
         msg.sender.transfer(address(this).balance);
     }
-    function drawResult() external {
-        //must be at least 10 min after the last result
-        require(getCurrentSlot() - 2 > lastDrawnSlot, "too soon for a new draw");
 
-        //TODO wrong timestamp here 
-        (bool _retrieved, uint256 _value, uint256 _tellorTimestamp) = getDataBefore(tellorId, block.timestamp - TEN_MINUTES);
+    function drawResult(uint256 _slotNumber) external {
+        uint _currentSlot =  getCurrentSlot();
+        require(_slotNumber + 2 <= _currentSlot, "too soon to be drawn");
+        require(slotResults[_slotNumber] == bytes32(0), "already have a result for this slot");
+
+        uint256 timeBefore = block.timestamp - (block.timestamp % SLOT_DURATION + 1 + SLOT_DURATION * (_slotNumber -_currentSlot));  
+        (bool _retrieved, uint256 _value, uint256 _tellorTimestamp) = getDataBefore(tellorId,timeBefore);
         require(_retrieved, "No value from tellor Oracle");
-        require(_tellorTimestamp + TEN_MINUTES <= block.timestamp, "tellor value must be old enough");
+        
         uint64 _lat = uint64(_value);
         uint64 _lon  = uint64(_value >> 64);
         uint128 _time = uint64(_value >> 128);
@@ -61,33 +63,29 @@ contract SpaceLotto is UsingTellor {
         bytes32 result = _hash(_time, _lon, _lat);
         uint256 slot = getSlotFor(uint256(_time));
 
-        require(slotResults[slot] == bytes32(0), "already have a result for this slot");
-
+        require(uint256(_time) > _slotNumber * SLOT_DURATION);
         slotResults[slot] = result;
         timeResults[uint256(_time)] = result;
-        lastDrawnSlot  = slot;
     }
 
     function getCurrentSlot() public view returns(uint){
-        return block.timestamp / 600;
+        return block.timestamp / SLOT_DURATION;
     }
 
      function getSlotFor(uint256 _timestamp) public view returns(uint){
-        return _timestamp / 600;
+        return _timestamp / SLOT_DURATION;
     }
- 
-    function _isValidBet(uint128 _timestamp, uint64 _lon, uint64 _lat) internal{
+
+    function _isValidBet(uint128 _timestamp, uint64 _lon, uint64 _lat) internal view {
         // Can only bet on future slots
         require( getSlotFor(_timestamp) > getCurrentSlot() && _lon > 0 && _lat > 0, "invalid bet");
     }
 
-    function _hash(uint128 _timestamp, uint64 _lon, uint64 _lat) internal returns (bytes32) {
+    function _hash(uint128 _timestamp, uint64 _lon, uint64 _lat) internal view returns (bytes32) {
         return keccak256(abi.encodePacked(_timestamp, _lon, _lat));
     }
 
     receive() external payable { }
-
-
 }
 
 
