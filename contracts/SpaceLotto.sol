@@ -20,6 +20,7 @@ contract SpaceLotto is UsingTellor {
     mapping(bytes32 => bool) public uniqueBets;
     mapping(uint256 => bytes32) public slotResults; //slot -> result
     mapping(uint256 => bytes32) public timeResults; //slot -> result
+    mapping(uint256 => Position) public readableResults; //slot -> result
 
     constructor( address payable  _tellorAddress) UsingTellor(_tellorAddress) {
     }
@@ -52,20 +53,21 @@ contract SpaceLotto is UsingTellor {
         require(_slotNumber + 2 <= _currentSlot, "too soon to be drawn");
         require(slotResults[_slotNumber] == bytes32(0), "already have a result for this slot");
 
-        uint256 timeBefore = block.timestamp - (block.timestamp % SLOT_DURATION + 1 + SLOT_DURATION * (_slotNumber -_currentSlot));  
+        uint256 timeBefore = (_slotNumber + 1) * SLOT_DURATION;
         (bool _retrieved, uint256 _value, uint256 _tellorTimestamp) = getDataBefore(tellorId,timeBefore);
         require(_retrieved, "No value from tellor Oracle");
         
         uint64 _lat = uint64(_value);
         uint64 _lon  = uint64(_value >> 64);
-        uint128 _time = uint64(_value >> 128);
+        uint128 _time = uint128(_value >> 128);
 
         bytes32 result = _hash(_time, _lon, _lat);
         uint256 slot = getSlotFor(uint256(_time));
 
-        require(uint256(_time) > _slotNumber * SLOT_DURATION);
+        require(slot == _slotNumber, "Does not belong to slot");
         slotResults[slot] = result;
         timeResults[uint256(_time)] = result;
+        readableResults[slot] = Position(_lon, _lat);
     }
 
     function getCurrentSlot() public view returns(uint){
@@ -74,6 +76,11 @@ contract SpaceLotto is UsingTellor {
 
      function getSlotFor(uint256 _timestamp) public view returns(uint){
         return _timestamp / SLOT_DURATION;
+    }
+
+    function getResult(uint256 slot) public view returns(uint64 longitude, uint64 latitude) {
+        longitude = readableResults[slot].lon;
+        latitude = readableResults[slot].lat;
     }
 
     function _isValidBet(uint128 _timestamp, uint64 _lon, uint64 _lat) internal view {

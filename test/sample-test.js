@@ -1,14 +1,15 @@
 const { expect } = require("chai");
 
-describe("Greeter", function() {
-  it("Should return the new greeting once it's changed", async function() {
-    const Greeter = await ethers.getContractFactory("Greeter");
-    const greeter = await Greeter.deploy("Hello, world!");
-    
-    await greeter.deployed();
-    expect(await greeter.greet()).to.equal("Hello, world!");
+describe("Space Lotto", function() {
+  it("Should be able to bet", async function() {
+    // const SpaceLotto = await ethers.getContractFactory("SpaceLotto");
+    // const PlayGround = await ethers.getContractFactory("Playground");
+    // const playground = await PlayGround.deploy();
+    // const spaceLotto = await SpaceLotto.deploy(playground.address)
+    // await playground.deployed();
+    // await spaceLotto.deployed();
 
-    await greeter.setGreeting("Hola, mundo!");
-    expect(await greeter.greet()).to.equal("Hola, mundo!");
+    // playground.submitValue(75, 0);
+
   });
 });
