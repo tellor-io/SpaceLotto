@@ -12,11 +12,10 @@ contract SpaceLotto is UsingTellor {
     }
 
     uint128 public constant SLOT_DURATION = 600; 
-
     uint256 public tellorId = 75; //The id on tellor system
     uint256 public ticket = 100000000; //100 Million wei
 
-    mapping(address => mapping(uint256 => Position)) public bets; //better -> timestamp -> Position 
+    mapping(address => mapping(uint256 => Position)) public bets; //player -> timestamp -> Position 
     mapping(bytes32 => bool) public uniqueBets;
     mapping(uint256 => bytes32) public slotResults; //slot -> result
     mapping(uint256 => bytes32) public timeResults; //slot -> result
@@ -52,11 +51,9 @@ contract SpaceLotto is UsingTellor {
         uint _currentSlot =  getCurrentSlot();
         require(_slotNumber + 2 <= _currentSlot, "too soon to be drawn");
         require(slotResults[_slotNumber] == bytes32(0), "already have a result for this slot");
-
-        uint256 timeBefore = (_slotNumber + 1) * SLOT_DURATION;
-        (bool _retrieved, uint256 _value, uint256 _tellorTimestamp) = getDataBefore(tellorId,timeBefore);
-        require(_retrieved, "No value from tellor Oracle");
         
+        uint256 _value = getValueFromTellor(uint256 _slotNumber);
+
         uint64 _lat = uint64(_value);
         uint64 _lon  = uint64(_value >> 64);
         uint128 _time = uint128(_value >> 128);
@@ -68,6 +65,12 @@ contract SpaceLotto is UsingTellor {
         slotResults[slot] = result;
         timeResults[uint256(_time)] = result;
         readableResults[slot] = Position(_lon, _lat);
+    }
+
+    function getValueFromTellor(uint256 _slotNumber) internal returns(uint256 value){
+        uint256 timeBefore = (_slotNumber + 1) * SLOT_DURATION;
+        (bool _retrieved, uint256 _value, uint256 _tellorTimestamp) = getDataBefore(tellorId,timeBefore);
+        require(_retrieved, "No value from tellor Oracle");
     }
 
     function getCurrentSlot() public view returns(uint){
